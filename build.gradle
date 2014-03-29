@@ -1,0 +1,15 @@
+apply plugin: 'java'
+
+sourceCompatibility = 1.5
+version = '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.lwjgl.lwjgl:lwjgl:2.9.0'
+    compile 'org.lwjgl.lwjgl:lwjgl-platform:2.9.0'
+    compile 'org.lwjgl.lwjgl:lwjgl_util:2.9.0'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
