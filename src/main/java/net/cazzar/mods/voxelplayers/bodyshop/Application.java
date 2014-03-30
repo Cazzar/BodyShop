@@ -16,13 +16,12 @@ import java.util.List;
 import java.util.Random;
 
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL20.glDisableVertexAttribArray;
 
 
 public class Application {
 
-    static double rotationY = 0.0;
     static double rotationX = 0.0;
+    static double rotationY = 0.0;
 
     static Vector3f[] points = new Vector3f[100000];
     static int[] pointBuffers = new int[points.length];
@@ -38,7 +37,7 @@ public class Application {
     public static void main(String[] args) {
         initDisplay();
 
-        System.out.println(glGetString(GL_VERSION));
+//        System.out.println(glGetString(GL_VERSION));
 
         for (int i = 0; i < points.length; i++) {
             points[i] = new Vector3f((random.nextFloat() - 0.5f) * 1000f, (random.nextFloat() - 0.5f) * 1000f, random.nextInt(2000) - 2000);
@@ -51,15 +50,10 @@ public class Application {
         voxel.setupVBO();
         entities.add(voxel);
 
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glEnableClientState(GL_NORMAL_ARRAY);
-        glEnableClientState(GL_COLOR_ARRAY);
-
+        glEnable(GL_CULL_FACE);
         while (!Display.isCloseRequested()) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glEnable(GL_COLOR_MATERIAL);
-            glEnable(GL_DEPTH_TEST);
-
+            glCullFace(GL_BACK);
             render();
 
             glDisable(GL_CULL_FACE);
@@ -68,83 +62,42 @@ public class Application {
 //            Display.sync(60);
             updateFPS();
         }
-        glDisableVertexAttribArray(0);
         Display.destroy();
     }
 
     private static void render() {
 //        glTranslatef(0, 0, pos);
-//        glPushMatrix();
-//        glTranslated(posX, posY, posZ);
-//        glRotated(rotationX, 1, 0, 0);
-//        glRotated(rotationY, 0, 1, 0);
-
-        for (Entity entity : entities) {
+        glPushMatrix();
+        glTranslated(posX, posY, posZ);
+        glRotated(rotationY, 1, 0, 0);
+        glRotated(rotationX, 0, 1, 0);
+        glShadeModel(GL_SMOOTH);
+//        for (Entity entity : entities) {
 //            glPushMatrix();
-            entity.render();
+//            entity.render();
 //            glPopMatrix();
-        }
+//        }
 
-        /*{
-            float[] vertex_data_array = {
-                    //   x      y      z      nx     ny     nz     r      g      b      a
-                    // back quad
-                     1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
-                    -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
-                    -1.0f, -1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
-                     1.0f, -1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
+        glBegin(GL_TRIANGLE_FAN);
+        double s = 1;
+        glColor3f(1, 0, 0);
+        glVertex3f(-1, -1, -1); //0
+        glVertex3f(1, -1, -1); //1
+        glVertex3f(1, 1, -1); //5
+        glVertex3f(-1, 1, -1); //4
+        glVertex3f(-1, 1, 1); //7
+        glVertex3f(-1, -1, 1); //3
+        glVertex3f(1, -1, 1); //2
+        glVertex3f(1, -1, -1); //1
+        glEnd();
 
-                    // front quad
-                     1.0f,  1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
-                    -1.0f,  1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
-                    -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
-                     1.0f, -1.0f, -1.0f,  0.0f, -1.0f, 0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
-
-                    // left quad
-                    -1.0f,  1.0f, -1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-                    -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-                    -1.0f, -1.0f,  1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-                    -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-
-                    // right quad
-                    1.0f,  1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
-                    1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
-                    1.0f, -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
-                    1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
-
-                    // top quad
-                    -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  0.0f,  1.0f,
-                    -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  0.0f,  1.0f,
-                     1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  0.0f,  1.0f,
-                     1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  0.0f,  1.0f,
-
-                    // bottom quad
-                    -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-                    -1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-                     1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-                     1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f
-            };
-
-            FloatBuffer vertex_buffer_data = BufferUtils.createFloatBuffer(vertex_data_array.length);
-            vertex_buffer_data.put(vertex_data_array);
-            vertex_buffer_data.rewind();
-
-            IntBuffer buffer = BufferUtils.createIntBuffer(1);
-            glGenBuffers(buffer);
-
-            int vertex_buffer_id = buffer.get(0);
-            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
-            glBufferData(GL_ARRAY_BUFFER, vertex_buffer_data, GL_STATIC_DRAW);
-
-            glVertexPointer(3, GL_FLOAT, 40, 0);
-            glNormalPointer(GL_FLOAT, 40, 12);
-            glColorPointer(4, GL_FLOAT, 40, 24);
-
-            glDrawArrays(GL_QUADS, 0, vertex_data_array.length / 10);
-        }*/
+        glBegin(GL_POINTS);
+        glColor3f(0, 1, 0);
+        glVertex3f(0, 0, 0);
+        glEnd();
 
 
-//        glPopMatrix();
+        glPopMatrix();
     }
 
     private static void pollInput() {
@@ -156,22 +109,23 @@ public class Application {
 //            int x = Mouse.getX();
 //            int y = Mouse.getY();
 
-            rotationX += Mouse.getDY();
-            rotationY += Mouse.getDX();
+            rotationY += Mouse.getDY();
+            rotationX += Mouse.getDX();
+
         }
 
         if (Keyboard.isKeyDown(Keyboard.KEY_R)) {
             posX = 0;
             posY = 0;
             posZ = 0;
-            rotationX = 0;
             rotationY = 0;
+            rotationX = 0;
 //            glLoadIdentity();
         }
 
         final boolean shift = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
 
-        final double offset = shift ? 0.04 : 0.01;
+        final double offset = shift ? 0.4 : 0.1;
 
         if (Keyboard.isKeyDown(Keyboard.KEY_W)) posZ += offset * delta;
         if (Keyboard.isKeyDown(Keyboard.KEY_S)) posZ -= offset * delta;
@@ -193,7 +147,7 @@ public class Application {
 
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
-            GLU.gluPerspective(30F, 800F / 600F, 0.001F, 1000F);
+            GLU.gluPerspective(90F, 800F / 600F, 0.001F, 10000F);
             glMatrixMode(GL_MODELVIEW);
         } catch (LWJGLException e) {
             e.printStackTrace();
