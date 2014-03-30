@@ -7,22 +7,16 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
-import org.lwjgl.opengl.GL15;
 import org.lwjgl.util.glu.GLU;
 import org.lwjgl.util.vector.Vector3f;
 
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
-import java.nio.ShortBuffer;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Random;
 
-import static org.lwjgl.opengl.ARBBufferObject.*;
-import static org.lwjgl.opengl.ARBVertexBufferObject.GL_ARRAY_BUFFER_ARB;
-import static org.lwjgl.opengl.ARBVertexBufferObject.GL_ELEMENT_ARRAY_BUFFER_ARB;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.glDisableVertexAttribArray;
-import static org.lwjgl.opengl.GL30.glBindVertexArray;
-import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
 
 
 public class Application {
@@ -39,9 +33,7 @@ public class Application {
     static long lastFPS = getTime();
     static long lastFrame = getTime();
     static int fps;
-    private static int vertexCount;
-    private static int vboId;
-    private static int vaoId;
+    static List<Entity> entities = new LinkedList<Entity>();
 
     public static void main(String[] args) {
         initDisplay();
@@ -52,92 +44,107 @@ public class Application {
             points[i] = new Vector3f((random.nextFloat() - 0.5f) * 1000f, (random.nextFloat() - 0.5f) * 1000f, random.nextInt(2000) - 2000);
         }
 
+        final EntityVoxel voxel = new EntityVoxel();
+        voxel.setPos(0f, 0f, 0f);
+        voxel.setScale(1f, 1f, 1f);
+        voxel.setB(1);
+        voxel.setupVBO();
+        entities.add(voxel);
+
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_NORMAL_ARRAY);
+        glEnableClientState(GL_COLOR_ARRAY);
+
         while (!Display.isCloseRequested()) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glEnable(GL_COLOR_MATERIAL);
+            glEnable(GL_DEPTH_TEST);
+
             render();
+
+            glDisable(GL_CULL_FACE);
             pollInput();
             Display.update();
 //            Display.sync(60);
             updateFPS();
         }
         glDisableVertexAttribArray(0);
-
-        // Delete the VBO
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
-        GL15.glDeleteBuffers(vboId);
-
-        // Delete the VAO
-        glBindVertexArray(0);
-        glDeleteVertexArrays(vaoId);
-
         Display.destroy();
     }
 
     private static void render() {
 //        glTranslatef(0, 0, pos);
-        glPushMatrix();
-        glTranslated(posX, posY, posZ);
-        glRotated(rotationX, 1, 0, 0);
-        glRotated(rotationY, 0, 1, 0);
+//        glPushMatrix();
+//        glTranslated(posX, posY, posZ);
+//        glRotated(rotationX, 1, 0, 0);
+//        glRotated(rotationY, 0, 1, 0);
 
-        // create geometry buffers
-        FloatBuffer cBuffer = BufferUtils.createFloatBuffer(9);
-        cBuffer.put(1).put(0).put(0);
-        cBuffer.put(0).put(1).put(0);
-        cBuffer.put(0).put(0).put(1);
-        cBuffer.flip();
+        for (Entity entity : entities) {
+//            glPushMatrix();
+            entity.render();
+//            glPopMatrix();
+        }
 
-        FloatBuffer vBuffer = BufferUtils.createFloatBuffer(9);
-        vBuffer.put(-0.5f).put(-0.5f).put(0.0f);
-        vBuffer.put(+0.5f).put(-0.5f).put(0.0f);
-        vBuffer.put(+0.5f).put(+0.5f).put(0.0f);
-        vBuffer.flip();
+        /*{
+            float[] vertex_data_array = {
+                    //   x      y      z      nx     ny     nz     r      g      b      a
+                    // back quad
+                     1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
+                    -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
+                    -1.0f, -1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
+                     1.0f, -1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
 
-        // create index buffer
-        ShortBuffer iBuffer = BufferUtils.createShortBuffer(3);
-        iBuffer.put((short) 0);
-        iBuffer.put((short) 1);
-        iBuffer.put((short) 2);
-        iBuffer.flip();
+                    // front quad
+                     1.0f,  1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
+                    -1.0f,  1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
+                    -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
+                     1.0f, -1.0f, -1.0f,  0.0f, -1.0f, 0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
 
-        //
+                    // left quad
+                    -1.0f,  1.0f, -1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f,  1.0f,
+                    -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f,  1.0f,
+                    -1.0f, -1.0f,  1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f,  1.0f,
+                    -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f,  1.0f,
 
-        IntBuffer ib = BufferUtils.createIntBuffer(3);
+                    // right quad
+                    1.0f,  1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
+                    1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
+                    1.0f, -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
+                    1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
 
-        glGenBuffersARB(ib);
-        int vHandle = ib.get(0);
-        int cHandle = ib.get(1);
-        int iHandle = ib.get(2);
+                    // top quad
+                    -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  0.0f,  1.0f,
+                    -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  0.0f,  1.0f,
+                     1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  0.0f,  1.0f,
+                     1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  0.0f,  1.0f,
 
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glEnableClientState(GL_COLOR_ARRAY);
+                    // bottom quad
+                    -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+                    -1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+                     1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+                     1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f
+            };
 
-        glBindBufferARB(GL_ARRAY_BUFFER_ARB, vHandle);
-        glBufferDataARB(GL_ARRAY_BUFFER_ARB, vBuffer, GL_STATIC_DRAW_ARB);
-        glVertexPointer(3, GL_FLOAT, /* stride */3 << 2, 0L);
+            FloatBuffer vertex_buffer_data = BufferUtils.createFloatBuffer(vertex_data_array.length);
+            vertex_buffer_data.put(vertex_data_array);
+            vertex_buffer_data.rewind();
 
-        glBindBufferARB(GL_ARRAY_BUFFER_ARB, cHandle);
-        glBufferDataARB(GL_ARRAY_BUFFER_ARB, cBuffer, GL_STATIC_DRAW_ARB);
-        glColorPointer(3, GL_FLOAT, /* stride */3 << 2, 0L);
+            IntBuffer buffer = BufferUtils.createIntBuffer(1);
+            glGenBuffers(buffer);
 
-        glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, iHandle);
-        glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, iBuffer, GL_STATIC_DRAW_ARB);
+            int vertex_buffer_id = buffer.get(0);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
+            glBufferData(GL_ARRAY_BUFFER, vertex_buffer_data, GL_STATIC_DRAW);
 
-        glDrawElements(GL_TRIANGLES, /* elements */3, GL_UNSIGNED_SHORT, 0L);
+            glVertexPointer(3, GL_FLOAT, 40, 0);
+            glNormalPointer(GL_FLOAT, 40, 12);
+            glColorPointer(4, GL_FLOAT, 40, 24);
 
-        glBindBufferARB(GL_ARRAY_BUFFER_ARB, 0);
-        glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
+            glDrawArrays(GL_QUADS, 0, vertex_data_array.length / 10);
+        }*/
 
-        glDisableClientState(GL_COLOR_ARRAY);
-        glDisableClientState(GL_VERTEX_ARRAY);
 
-        // cleanup VBO handles
-        ib.put(0, vHandle);
-        ib.put(1, cHandle);
-        ib.put(2, iHandle);
-        glDeleteBuffersARB(ib);
-
-        glPopMatrix();
+//        glPopMatrix();
     }
 
     private static void pollInput() {
@@ -146,8 +153,8 @@ public class Application {
 
         final int delta = getDelta();
         if (Mouse.isButtonDown(0)) {
-            int x = Mouse.getX();
-            int y = Mouse.getY();
+//            int x = Mouse.getX();
+//            int y = Mouse.getY();
 
             rotationX += Mouse.getDY();
             rotationY += Mouse.getDX();
