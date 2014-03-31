@@ -9,10 +9,12 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
+import org.lwjgl.util.Color;
 import org.lwjgl.util.glu.GLU;
 import org.lwjgl.util.vector.Vector3f;
 
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -45,10 +47,19 @@ public class Application {
         for (int i = 0; i < points.length; i++)
             points[i] = new Vector3f((random.nextFloat() - 0.5f) * 1000f, (random.nextFloat() - 0.5f) * 1000f, random.nextInt(2000) - 2000);
 
-        final EntityVoxel voxel = new EntityVoxel();
+        EntityVoxel voxel = new EntityVoxel();
         voxel.setPos(0f, 0f, 0f);
         voxel.setScale(1f, 1f, 1f);
-        voxel.setB(0.1f);
+        voxel.setB(1f);
+        voxel.setupVBO();
+        entities.add(voxel);
+
+        voxel = new EntityVoxel();
+        voxel.setPos(0f, 0f, 1f);
+        voxel.setScale(1f, 1f, 1f);
+        voxel.setR(Color.YELLOW.getRed() / 255f);
+        voxel.setG(Color.YELLOW.getGreen() / 255f);
+        voxel.setB(Color.YELLOW.getBlue() / 255f);
         voxel.setupVBO();
         entities.add(voxel);
 
@@ -59,12 +70,12 @@ public class Application {
             updateFPS();
             render();
             updateCamera();
-            ;
             Display.update();
             Display.sync(60);
         }
         Display.destroy();
     }
+
 
     private static void updateCamera() {
         int delta = getDelta();
@@ -75,7 +86,7 @@ public class Application {
         camera.processKeyboard(delta, 1, 1, 1);
         if (Mouse.isButtonDown(0)) {
             Mouse.setGrabbed(true);
-        } else if (Mouse.isButtonDown(1)) {
+        } else if (!Mouse.isButtonDown(0)) {
             Mouse.setGrabbed(false);
         }
     }
@@ -89,6 +100,26 @@ public class Application {
                 .build();
         camera.applyOptimalStates();
         camera.applyPerspectiveMatrix();
+    }
+
+    public static Vector3f getMousePosition(int mouseX, int mouseY) {
+        IntBuffer viewport = BufferUtils.createIntBuffer(16);
+        FloatBuffer modelview = BufferUtils.createFloatBuffer(16);
+        FloatBuffer projection = BufferUtils.createFloatBuffer(16);
+        FloatBuffer winZ = BufferUtils.createFloatBuffer(1);
+        FloatBuffer position = BufferUtils.createFloatBuffer(3);
+        float winX, winY;
+
+        glGetFloat( GL_MODELVIEW_MATRIX, modelview );
+        glGetFloat( GL_PROJECTION_MATRIX, projection );
+        glGetInteger( GL_VIEWPORT, viewport );
+
+        winX = (float)mouseX;
+        winY = (float)viewport.get(3) - (float)mouseY;
+
+        glReadPixels(mouseX, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, winZ);
+        GLU.gluUnProject(winX, winY, winZ.get(), modelview, projection, viewport, position);
+        return new Vector3f(position.get(0), position.get(1), position.get(2));
     }
 
     private static void initGL() {
