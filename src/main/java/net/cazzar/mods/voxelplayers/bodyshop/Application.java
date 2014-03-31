@@ -1,5 +1,7 @@
 package net.cazzar.mods.voxelplayers.bodyshop;
 
+import net.cazzar.mods.voxelplayers.bodyshop.util.Camera;
+import net.cazzar.mods.voxelplayers.bodyshop.util.EulerCamera;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.Sys;
@@ -17,9 +19,7 @@ import java.util.Random;
 
 import static org.lwjgl.opengl.GL11.*;
 
-
 public class Application {
-
     static double rotationX = 0.0;
     static double rotationY = 0.0;
 
@@ -32,86 +32,112 @@ public class Application {
     static long lastFPS = getTime();
     static long lastFrame = getTime();
     static int fps;
+    static int i;
+    static Camera camera;
     static List<Entity> entities = new LinkedList<Entity>();
 
     public static void main(String[] args) {
         initDisplay();
-
+        initGL();
+        initCamera();
 //        System.out.println(glGetString(GL_VERSION));
 
-        for (int i = 0; i < points.length; i++) {
+        for (int i = 0; i < points.length; i++)
             points[i] = new Vector3f((random.nextFloat() - 0.5f) * 1000f, (random.nextFloat() - 0.5f) * 1000f, random.nextInt(2000) - 2000);
-        }
 
         final EntityVoxel voxel = new EntityVoxel();
         voxel.setPos(0f, 0f, 0f);
         voxel.setScale(1f, 1f, 1f);
-        voxel.setB(1);
+        voxel.setB(0.1f);
         voxel.setupVBO();
         entities.add(voxel);
 
-        glEnable(GL_CULL_FACE);
+        lastFrame = getTime();
+
         while (!Display.isCloseRequested()) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glCullFace(GL_BACK);
-            render();
-
-            glDisable(GL_CULL_FACE);
-            pollInput();
-            Display.update();
-//            Display.sync(60);
             updateFPS();
+            render();
+            updateCamera();
+            ;
+            Display.update();
+            Display.sync(60);
         }
         Display.destroy();
     }
 
-    private static void render() {
-//        glTranslatef(0, 0, pos);
-        glPushMatrix();
-        glTranslated(posX, posY, posZ);
-        glRotated(rotationY, 1, 0, 0);
-        glRotated(rotationX, 0, 1, 0);
+    private static void updateCamera() {
+        int delta = getDelta();
+        if (delta == 0) return;
+
+        if (Mouse.isGrabbed())
+            camera.processMouse(1, 80, -80);
+        camera.processKeyboard(delta, 1, 1, 1);
+        if (Mouse.isButtonDown(0)) {
+            Mouse.setGrabbed(true);
+        } else if (Mouse.isButtonDown(1)) {
+            Mouse.setGrabbed(false);
+        }
+    }
+
+    private static void initCamera() {
+        camera = new EulerCamera.Builder()
+                .setAspectRatio((float) Display.getWidth() / Display.getHeight())
+                .setRotation(-1.12f, 0.16f, 0f)
+                .setPosition(-1.38f, 1.36f, 7.95f)
+                .setFieldOfView(60)
+                .build();
+        camera.applyOptimalStates();
+        camera.applyPerspectiveMatrix();
+    }
+
+    private static void initGL() {
+        glMatrixMode(GL_PROJECTION);
+        GLU.gluPerspective(45F, 800F / 600F, 0.001F, 10000F);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        glEnable(GL_VERTEX_ARRAY);
+        glEnable(GL_NORMAL_ARRAY);
+        glEnable(GL_COLOR_ARRAY);
         glShadeModel(GL_SMOOTH);
-//        for (Entity entity : entities) {
-//            glPushMatrix();
-//            entity.render();
-//            glPopMatrix();
-//        }
 
-        glBegin(GL_TRIANGLE_FAN);
-        double s = 1;
-        glColor3f(1, 0, 0);
-        glVertex3f(-1, -1, -1); //0
-        glVertex3f(1, -1, -1); //1
-        glVertex3f(1, 1, -1); //5
-        glVertex3f(-1, 1, -1); //4
-        glVertex3f(-1, 1, 1); //7
-        glVertex3f(-1, -1, 1); //3
-        glVertex3f(1, -1, 1); //2
-        glVertex3f(1, -1, -1); //1
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+
+//        glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+
+//        glEnable(GL_LIGHTING);
+//        glLight(GL_LIGHT0, GL_AMBIENT, asFloatBuffer(1f, 1f, 1f, 1.0f));
+//        glLight(GL_LIGHT0, GL_DIFFUSE, asFloatBuffer(1.0f, 1.0f, 1.0f, 1.0f));
+//        glLight(GL_LIGHT0, GL_POSITION, asFloatBuffer(-1.0f, 1.0f, 0.0f, 1.0f));
+//        glEnable(GL_LIGHT0);
+
+//        glEnable(GL_CULL_FACE);
+//        glCullFace(GL_BACK);
+    }
+
+
+    private static void render() {
+        glPushMatrix();
+        camera.applyTranslations();
+
+        for (Entity entity : entities) {
+            glPushMatrix();
+            entity.render();
+            glPopMatrix();
+        }
         glEnd();
-
-        glBegin(GL_POINTS);
-        glColor3f(0, 1, 0);
-        glVertex3f(0, 0, 0);
-        glEnd();
-
 
         glPopMatrix();
     }
 
     private static void pollInput() {
-//        final DisplayMode displayMode = Display.getDisplayMode();
-//        Mouse.setCursorPosition(displayMode.getWidth() / 2, displayMode.getHeight() / 2);
 
         final int delta = getDelta();
         if (Mouse.isButtonDown(0)) {
-//            int x = Mouse.getX();
-//            int y = Mouse.getY();
-
-            rotationY += Mouse.getDY();
+            rotationY -= Mouse.getDY();
             rotationX += Mouse.getDX();
-
         }
 
         if (Keyboard.isKeyDown(Keyboard.KEY_R)) {
@@ -120,7 +146,6 @@ public class Application {
             posZ = 0;
             rotationY = 0;
             rotationX = 0;
-//            glLoadIdentity();
         }
 
         final boolean shift = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
@@ -140,15 +165,8 @@ public class Application {
             Display.setTitle("Voxel Player Maker");
             Display.setDisplayMode(new DisplayMode(800, 600));
             Display.create();
-
             Keyboard.create();
-
             Mouse.create();
-
-            glMatrixMode(GL_PROJECTION);
-            glLoadIdentity();
-            GLU.gluPerspective(90F, 800F / 600F, 0.001F, 10000F);
-            glMatrixMode(GL_MODELVIEW);
         } catch (LWJGLException e) {
             e.printStackTrace();
         }
