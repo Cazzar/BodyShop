@@ -82,7 +82,7 @@ public class Game {
 				// Render();
 				Display.update();
 				Display.sync(60);
-			} catch (Exception e) {
+			} catch (Exception ignored) {
 
 			}
 		}

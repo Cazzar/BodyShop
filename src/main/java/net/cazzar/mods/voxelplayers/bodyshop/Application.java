@@ -9,10 +9,11 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
-import org.lwjgl.util.Color;
 import org.lwjgl.util.glu.GLU;
 import org.lwjgl.util.vector.Vector3f;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.LinkedList;
@@ -36,7 +37,7 @@ public class Application {
     static int fps;
     static int i;
     static Camera camera;
-    static List<Entity> entities = new LinkedList<Entity>();
+    static List<Entity> entities = new LinkedList<>();
 
     public static void main(String[] args) {
         initDisplay();
@@ -47,19 +48,17 @@ public class Application {
         for (int i = 0; i < points.length; i++)
             points[i] = new Vector3f((random.nextFloat() - 0.5f) * 1000f, (random.nextFloat() - 0.5f) * 1000f, random.nextInt(2000) - 2000);
 
-        EntityVoxel voxel = new EntityVoxel();
+        EntityVoxel voxel = new EntityVoxel(1);
         voxel.setPos(0f, 0f, 0f);
         voxel.setScale(1f, 1f, 1f);
         voxel.setB(1f);
         voxel.setupVBO();
         entities.add(voxel);
 
-        voxel = new EntityVoxel();
-        voxel.setPos(0f, 0f, 1f);
+        voxel = new EntityVoxel(2);
+        voxel.setPos(0f, 0f, -1f);
         voxel.setScale(1f, 1f, 1f);
-        voxel.setR(Color.YELLOW.getRed() / 255f);
-        voxel.setG(Color.YELLOW.getGreen() / 255f);
-        voxel.setB(Color.YELLOW.getBlue() / 255f);
+        voxel.setB(2f);
         voxel.setupVBO();
         entities.add(voxel);
 
@@ -68,6 +67,7 @@ public class Application {
         while (!Display.isCloseRequested()) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             updateFPS();
+            select(Mouse.getX(), Mouse.getY());
             render();
             updateCamera();
             Display.update();
@@ -76,20 +76,21 @@ public class Application {
         Display.destroy();
     }
 
-
     private static void updateCamera() {
         int delta = getDelta();
         if (delta == 0) return;
 
-        if (Mouse.isGrabbed())
+        if (Mouse.isButtonDown(0))
             camera.processMouse(1, 80, -80);
+
         camera.processKeyboard(delta, 1, 1, 1);
         if (Mouse.isButtonDown(0)) {
             Mouse.setGrabbed(true);
-        } else if (!Mouse.isButtonDown(0)) {
+        } else if (Mouse.isButtonDown(1)) {
             Mouse.setGrabbed(false);
         }
     }
+
 
     private static void initCamera() {
         camera = new EulerCamera.Builder()
@@ -100,26 +101,6 @@ public class Application {
                 .build();
         camera.applyOptimalStates();
         camera.applyPerspectiveMatrix();
-    }
-
-    public static Vector3f getMousePosition(int mouseX, int mouseY) {
-        IntBuffer viewport = BufferUtils.createIntBuffer(16);
-        FloatBuffer modelview = BufferUtils.createFloatBuffer(16);
-        FloatBuffer projection = BufferUtils.createFloatBuffer(16);
-        FloatBuffer winZ = BufferUtils.createFloatBuffer(1);
-        FloatBuffer position = BufferUtils.createFloatBuffer(3);
-        float winX, winY;
-
-        glGetFloat( GL_MODELVIEW_MATRIX, modelview );
-        glGetFloat( GL_PROJECTION_MATRIX, projection );
-        glGetInteger( GL_VIEWPORT, viewport );
-
-        winX = (float)mouseX;
-        winY = (float)viewport.get(3) - (float)mouseY;
-
-        glReadPixels(mouseX, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, winZ);
-        GLU.gluUnProject(winX, winY, winZ.get(), modelview, projection, viewport, position);
-        return new Vector3f(position.get(0), position.get(1), position.get(2));
     }
 
     private static void initGL() {
@@ -148,12 +129,71 @@ public class Application {
 //        glCullFace(GL_BACK);
     }
 
+    public static void select(int x, int y) {
+        // The selection buffer
+        IntBuffer selBuffer = ByteBuffer.allocateDirect(1024).order(ByteOrder.nativeOrder()).asIntBuffer();
+        int buffer[] = new int[256];
+
+        IntBuffer vpBuffer = ByteBuffer.allocateDirect(64).order(ByteOrder.nativeOrder()).asIntBuffer();
+        // The size of the viewport. [0] Is <x>, [1] Is <y>, [2] Is <width>, [3] Is <height>
+        int[] viewport = new int[4];
+
+        // The number of "hits" (objects within the pick area).
+        int hits;
+        // Get the viewport info
+        glGetInteger(GL_VIEWPORT, vpBuffer);
+        vpBuffer.get(viewport);
+
+        // Set the buffer that OpenGL uses for selection to our buffer
+        glSelectBuffer(selBuffer);
+
+        // Change to selection mode
+        glRenderMode(GL_SELECT);
+
+        // Initialize the name stack (used for identifying which object was selected)
+        glInitNames();
+        glPushName(0);
+
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
+
+            /*  create 5x5 pixel picking region near cursor location */
+        GLU.gluPickMatrix((float) x, (float) y, 5.0f, 5.0f, IntBuffer.wrap(viewport));
+
+        GLU.gluPerspective(40f, 800 / 600f, 0.001f, 400f);
+        render();
+        glPopMatrix();
+
+        // Exit selection mode and return to render mode, returns number selected
+        hits = glRenderMode(GL_RENDER);
+        System.out.println("hits: " + hits);
+
+        selBuffer.get(buffer);
+        // Objects Were Drawn Where The Mouse Was
+        if (hits > 0) {
+            // If There Were More Than 0 Hits
+            int choose = buffer[3]; // Make Our Selection The First Object
+            int depth = buffer[1]; // Store How Far Away It Is
+            for (int i = 1; i < hits; i++) {
+                // Loop Through All The Detected Hits
+                // If This Object Is Closer To Us Than The One We Have Selected
+                if (buffer[i * 4 + 1] < depth) {
+                    choose = buffer[i * 4 + 3]; // Select The Closer Object
+                    depth = buffer[i * 4 + 1]; // Store How Far Away It Is
+                }
+            }
+            System.out.println("Chosen: " + choose);
+        }
+
+    }
 
     private static void render() {
         glPushMatrix();
         camera.applyTranslations();
 
         for (Entity entity : entities) {
+            glLoadName(entity.id);
             glPushMatrix();
             entity.render();
             glPopMatrix();
