@@ -1,10 +1,15 @@
 package net.cazzar.mods.voxelplayers.bodyshop;
 
 public abstract class Entity {
+    final int id;
     protected float x, y, z;
     protected float xSize, ySize, zSize;
     protected float r, g, b;
     protected int vboId;
+
+    protected Entity(int entityId) {
+        this.id = entityId;
+    }
 
     public void setPos(float x, float y, float z) {
         this.x = x;
